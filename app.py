@@ -54,6 +54,9 @@ if '최종배정결과' not in st.session_state:
 if '병합최종결과' not in st.session_state:
     st.session_state['병합최종결과'] = pd.DataFrame()
 
+if '수정블록리스트' not in st.session_state:
+    st.session_state['수정블록리스트'] = ""
+
 ## Function #################################
 import functools
 def unpack_df_columns(func):
@@ -67,7 +70,6 @@ def unpack_df_columns(func):
 def 최소요구착수일구하기(납기, 공기):
     result = pd.to_datetime(납기) - timedelta(days=int(공기))
     return result.date()
-
 
 @unpack_df_columns
 def 블록우선순위구하기(날순, 공순, 크순):
@@ -87,8 +89,6 @@ def 블록데이터전처리(블록원데이터):
     df1 = df1.sort_values(by=["우선순위"])
     return df1
 
-
-
 @unpack_df_columns
 def 정반우선순위구하기(중순, 크순):
     global 중량가중치, 크기가중치
@@ -103,7 +103,6 @@ def 정반데이터전처리(정반원데이터):
     df2["우선순위"] = df2[["중량순서", "크기순서"]].apply(정반우선순위구하기, axis=1)
     df2 = df2.sort_values(by=["우선순위"])
     return df2
-
 
 def create_init_calendar(날짜집합, 정반집합):
     배치달력 = pd.DataFrame()
@@ -246,7 +245,6 @@ def 생산계획수립():
         st.session_state['공백순서달력'] = pd.DataFrame()
         st.info("States 변수 초기화 완료")
 
-
     ## Initial Settings
     with st.expander("📜 원데이터 로딩"):
         if st.button("Raw Data Loading"):
@@ -281,7 +279,13 @@ def 생산계획수립():
         if st.button("Calendar Loading"):
             최초정반집합 = st.session_state['정반데이터']["정반명"].unique().tolist()
             st.session_state['배치달력'] = create_init_calendar(날짜집합, 최초정반집합)
+
+            # 기 배치 생산계획 하드코딩 반영
             st.session_state['배치달력'].iloc[:2,:] = 1
+            st.session_state['배치달력'].iloc[3:5,:1] = 1
+            st.session_state['배치달력'].iloc[:4,1:2] = 1
+            st.session_state['배치달력'].iloc[:5,2:3] = 1
+
             st.session_state['정반집합'] = st.session_state['배치달력']. columns.tolist()
 
             st.session_state['공기달력'] = create_공기달력(st.session_state['배치달력'], 날짜집합, st.session_state['정반집합'])
@@ -290,13 +294,13 @@ def 생산계획수립():
         col11, col12, col13 = st.columns(3)
         with col11:
             st.markdown("📅 배치달력 - 1이면 기배치, 0이면 배치가능")
-            st.dataframe(st.session_state['배치달력'], use_container_width=True)
+            st.dataframe(st.session_state['배치달력'].style.highlight_min(axis=0), use_container_width=True)
         with col12:
             st.markdown("📅 공기달력-날짜별 연속확보 가능 공기")
-            st.dataframe(st.session_state['공기달력'], use_container_width=True)
+            st.dataframe(st.session_state['공기달력'].style.highlight_min(axis=0), use_container_width=True)
         with col13:
             st.markdown("📅 공백순서달력- 공백구간 간의 순서")
-            st.dataframe(st.session_state['공백순서달력'], use_container_width=True)
+            st.dataframe(st.session_state['공백순서달력'].style.highlight_min(axis=0), use_container_width=True)
 
     # 결과모음리스트
     배정된블록 = []
@@ -304,35 +308,39 @@ def 생산계획수립():
     착수일 = []
 
     with st.expander("생산계획수립"):
-        if st.button("📈 생산계획수립"):
-            for blk in tqdm(st.session_state['블록데이터']["블록명"]):
 
-                target_block = blk
-                blk_index = st.session_state['블록데이터'][st.session_state['블록데이터']["블록명"]==blk].index.values[0]
+        if st.button("📈 생산계획수립"):
+
+            st.session_state['수정블록리스트'] = st.session_state['블록데이터']["블록명"]
+            st.markdown(f"1차검토 블록리스트 : {st.session_state['수정블록리스트']}")
+
+            for target_block in tqdm(st.session_state['수정블록리스트']):
+                print(f"1차: {target_block}")
+
+                blk_index = st.session_state['블록데이터'][st.session_state['블록데이터']["블록명"]==target_block].index.values[0]
                 target_weight = st.session_state['블록데이터'][st.session_state['블록데이터']["블록명"]==target_block]["중량"].values[0]
                 target_size = st.session_state['블록데이터'][st.session_state['블록데이터']["블록명"]==target_block]["사이즈"].values[0]
                 target_표준공기 = st.session_state['블록데이터'][st.session_state['블록데이터']["블록명"]==target_block]["표준공기"].values[0]
                 st.warning(f"타겟블록정보 - idx{blk_index}, 블록명 {target_block}, 무게 {target_weight}, 사이즈 {target_size}")
                 
-                가능정반리스트 = st.session_state['정반데이터'][st.session_state['정반데이터']["occupied"]==0]["정반명"].tolist()
-                st.warning(f"가능정반리스트 - {가능정반리스트}")
+                # 가능정반리스트 = st.session_state['정반데이터'][st.session_state['정반데이터']["occupied"]==0]["정반명"].tolist()
+                # st.warning(f"가능정반리스트 - {가능정반리스트}")
                     
                 for 가능정반 in st.session_state['정반데이터'][st.session_state['정반데이터']["occupied"]==0]["정반명"]:
                     
                     가능정반인덱스 = st.session_state['정반데이터'][st.session_state['정반데이터']["정반명"]==가능정반].index.values[0]
                     weight_capa = st.session_state['정반데이터'][st.session_state['정반데이터']["정반명"]==가능정반]["가능중량"].values[0]
                     size_capa = st.session_state['정반데이터'][st.session_state['정반데이터']["정반명"]==가능정반]["사이즈"].values[0]
-                    st.warning(f"검토정반 - idx{가능정반인덱스}, 정반명{가능정반}, 가능중량{weight_capa}, 사이즈{size_capa}")
+                    착수가능일 = 착수가능일찾기(st.session_state['공기달력'], st.session_state['공백순서달력'], 가능정반, target_표준공기)
+                    착수가능일공백순서 = st.session_state['공백순서달력'].loc[착수가능일, 가능정반]
+                    st.warning(f"검토정반 - idx{가능정반인덱스}, 정반명{가능정반}, 가능중량{weight_capa}, 사이즈{size_capa}, 착수가능일 {착수가능일}, 공백순서 {착수가능일공백순서}")
                     
-                    if weight_capa >= target_weight and size_capa >= target_size:
+                    if weight_capa >= target_weight and size_capa >= target_size and 착수가능일공백순서 == 1:  ##########################
                         
-                        
-                        # 날짜 및 공기 매칭 체크
-                        착수가능일 = 착수가능일찾기(st.session_state['공기달력'], st.session_state['공백순서달력'], 가능정반, target_표준공기)
-                        st.success(f"{target_block}를 {가능정반}에 배치가능 / 착수가능일- {착수가능일}")
+                        st.success(f"{target_block}를 {가능정반}에 배치가능 / 착수가능일- {착수가능일} / 공백순서- {착수가능일공백순서}")
                         st.session_state['정반데이터'].loc[가능정반인덱스, "occupied"] = 1
                         st.session_state['블록데이터'].loc[blk_index, "정반배치"] = 1
-                        
+                                
                         ## 날짜까지 이상없으면 잔여면적 검토후 정반 쪼개기
                         잔여면적비율 = (size_capa - target_size) / size_capa
                         
@@ -355,28 +363,107 @@ def 생산계획수립():
                         
                             ## 새정반 추가사항 달력에 반영
                             st.session_state['정반집합'].append(새정반이름)    
-                            새정반집합 = st.session_state['정반집합']
-                            st.info(f"새정반집합- {새정반집합}")
-                            # print("")
+                            # 새정반집합 = st.session_state['정반집합']
+                            st.info(f"새정반집합- {st.session_state['정반집합']}")
 
-                        st.session_state['배치달력'] =  update_배치달력(st.session_state['배치달력'], 가능정반, 착수가능일, target_표준공기, 새정반집합) 
+                        st.session_state['배치달력'] =  update_배치달력(st.session_state['배치달력'], 가능정반, 착수가능일, target_표준공기, st.session_state['정반집합']) 
                         st.session_state['배치달력'].iloc[:2,:] = 1
-                        st.session_state['공기달력'] = create_공기달력(st.session_state['배치달력'], 날짜집합, 새정반집합)
-                        st.session_state['공백순서달력'] = create_공백순서달력(st.session_state['배치달력'], 새정반집합, 날짜집합)
+                        st.session_state['공기달력'] = create_공기달력(st.session_state['배치달력'], 날짜집합, st.session_state['정반집합'])
+                        st.session_state['공백순서달력'] = create_공백순서달력(st.session_state['배치달력'], st.session_state['정반집합'], 날짜집합)
                             
                         배정결과 = {"블록명": target_block, "정반명": 가능정반, "착수일": 착수가능일}    
                         st.success(f"최종배정결과 - {배정결과}")
-                        
+                        st.markdown("---")
+
                         배정된블록.append(target_block)
                         배정된정반.append(가능정반)
                         착수일.append(착수가능일)
-                        break      
-
+                        
+                        st.session_state['수정블록리스트'] = st.session_state['수정블록리스트'][st.session_state['수정블록리스트'] != target_block]
+                        break    
+                        
                     else:
-                        st.markdown(":red[블록을 정반에 배치할 수 없습니다.]")
+                        st.markdown("정반배정불가 - 1차")
                         pass
-                st.markdown("---")
 
+
+            st.markdown(f"2차검토 블록리스트 : {st.session_state['수정블록리스트']}")
+
+            for target_block in st.session_state['수정블록리스트']:
+                print(f"2차: {target_block}")
+
+                blk_index = st.session_state['블록데이터'][st.session_state['블록데이터']["블록명"]==target_block].index.values[0]
+                target_weight = st.session_state['블록데이터'][st.session_state['블록데이터']["블록명"]==target_block]["중량"].values[0]
+                target_size = st.session_state['블록데이터'][st.session_state['블록데이터']["블록명"]==target_block]["사이즈"].values[0]
+                target_표준공기 = st.session_state['블록데이터'][st.session_state['블록데이터']["블록명"]==target_block]["표준공기"].values[0]
+                st.warning(f"타겟블록정보 - idx{blk_index}, 블록명 {target_block}, 무게 {target_weight}, 사이즈 {target_size}")
+                
+                # 가능정반리스트 = st.session_state['정반데이터'][st.session_state['정반데이터']["occupied"]==0]["정반명"].tolist()
+                # st.warning(f"가능정반리스트 - {가능정반리스트}")
+                    
+                for 가능정반 in st.session_state['정반데이터'][st.session_state['정반데이터']["occupied"]==0]["정반명"]:
+                    
+                    가능정반인덱스 = st.session_state['정반데이터'][st.session_state['정반데이터']["정반명"]==가능정반].index.values[0]
+                    weight_capa = st.session_state['정반데이터'][st.session_state['정반데이터']["정반명"]==가능정반]["가능중량"].values[0]
+                    size_capa = st.session_state['정반데이터'][st.session_state['정반데이터']["정반명"]==가능정반]["사이즈"].values[0]
+                    착수가능일 = 착수가능일찾기(st.session_state['공기달력'], st.session_state['공백순서달력'], 가능정반, target_표준공기)
+                    착수가능일공백순서 = st.session_state['공백순서달력'].loc[착수가능일, 가능정반]
+                    st.warning(f"검토정반 - idx{가능정반인덱스}, 정반명{가능정반}, 가능중량{weight_capa}, 사이즈{size_capa}, 착수가능일 {착수가능일}, 공백순서 {착수가능일공백순서}")
+                    
+                    if weight_capa >= target_weight and size_capa >= target_size: # and 착수가능일공백순서 == 2:  ########################
+                        
+                        st.success(f"{target_block}를 {가능정반}에 배치가능 / 착수가능일- {착수가능일} / 공백순서- {착수가능일공백순서}")
+                        st.session_state['정반데이터'].loc[가능정반인덱스, "occupied"] = 1
+                        st.session_state['블록데이터'].loc[blk_index, "정반배치"] = 1
+                                
+                        ## 날짜까지 이상없으면 잔여면적 검토후 정반 쪼개기
+                        잔여면적비율 = (size_capa - target_size) / size_capa
+                        
+                        if 잔여면적비율 >= 정반쪼개는면적_Thresh:
+                            새정반이름 = 가능정반+"_추가"
+                            새정반면적 = size_capa * 잔여면적비율
+                            새오큐파이드 = 0
+                            기존정반새면적 = size_capa - 새정반면적
+                            
+                            st.session_state['정반데이터'].loc[가능정반인덱스,"사이즈"] = 기존정반새면적
+                            
+                            st.session_state['정반데이터'].loc[len(st.session_state['정반데이터'])] = {"정반명":새정반이름, "가능중량": weight_capa, "사이즈":새정반면적, "occupied":새오큐파이드}
+                            
+                            st.session_state['정반데이터']["중량순서"] = st.session_state['정반데이터']["가능중량"].rank(ascending=False)
+                            st.session_state['정반데이터']["크기순서"] = st.session_state['정반데이터']["사이즈"].rank(ascending=False)
+                            st.session_state['정반데이터']["우선순위"] = st.session_state['정반데이터'][["중량순서", "크기순서"]].apply(정반우선순위구하기, axis=1)
+                            st.session_state['정반데이터'] = st.session_state['정반데이터'].sort_values(by=["우선순위"])
+                            
+                            st.info(f"잔여면적비율 {np.round(잔여면적비율,1)*100}%로 30% 이상이므로 정반 쪼개기 - 새이름 {새정반이름} / 새면적 {새정반면적} / 기존정반수정면적-{기존정반새면적}") 
+                        
+                            ## 새정반 추가사항 달력에 반영
+                            st.session_state['정반집합'].append(새정반이름)    
+                            # 새정반집합 = st.session_state['정반집합']
+                            st.info(f"새정반집합- {st.session_state['정반집합']}")
+
+                        st.session_state['배치달력'] =  update_배치달력(st.session_state['배치달력'], 가능정반, 착수가능일, target_표준공기, st.session_state['정반집합']) 
+                        st.session_state['배치달력'].iloc[:2,:] = 1
+                        st.session_state['공기달력'] = create_공기달력(st.session_state['배치달력'], 날짜집합, st.session_state['정반집합'])
+                        st.session_state['공백순서달력'] = create_공백순서달력(st.session_state['배치달력'], st.session_state['정반집합'], 날짜집합)
+                            
+                        배정결과 = {"블록명": target_block, "정반명": 가능정반, "착수일": 착수가능일}    
+                        st.success(f"최종배정결과 - {배정결과}")
+                        st.markdown("---")
+
+                        배정된블록.append(target_block)
+                        배정된정반.append(가능정반)
+                        착수일.append(착수가능일)
+                        
+                        st.session_state['수정블록리스트'] = st.session_state['수정블록리스트'][st.session_state['수정블록리스트'] != target_block]
+                        break    
+                        
+                    else:
+                        st.markdown("정반배정불가-2차")
+                        pass
+            
+            st.markdown(f"최종 잔여블록 리스트 : {st.session_state['수정블록리스트']}")
+
+    
 
     st.session_state['최종배정결과'] = pd.DataFrame({"블록명":배정된블록, "정반명":배정된정반, "착수일":착수일})
     st.markdown("##### 🌻 최종 블록 - 정반 배정 결과")
@@ -432,13 +519,13 @@ if __name__ == "__main__":
             col21, col22, col23 = st.columns(3)
             with col21:
                 st.markdown("📅 배치달력 - 1이면 기배치, 0이면 배치가능")
-                st.dataframe(st.session_state['배치달력'], use_container_width=True)
+                st.dataframe(st.session_state['배치달력'].style.highlight_min(axis=0), use_container_width=True)
             with col22:
                 st.markdown("📅 공기달력-날짜별 연속확보 가능 공기")
-                st.dataframe(st.session_state['공기달력'], use_container_width=True)
+                st.dataframe(st.session_state['공기달력'].style.highlight_min(axis=0), use_container_width=True)
             with col23:
                 st.markdown("📅 공백순서달력- 공백구간 간의 순서")
-                st.dataframe(st.session_state['공백순서달력'], use_container_width=True)
+                st.dataframe(st.session_state['공백순서달력'].style.highlight_min(axis=0), use_container_width=True)
 
         st.markdown('''
                     **검토자 중간의견**
