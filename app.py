@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
+# from tqdm import tqdm
 from datetime import datetime, timedelta
 
 st.set_page_config(
@@ -314,7 +314,7 @@ def 생산계획수립():
             st.session_state['수정블록리스트'] = st.session_state['블록데이터']["블록명"]
             st.markdown(f"1차검토 블록리스트 : {st.session_state['수정블록리스트']}")
 
-            for target_block in tqdm(st.session_state['수정블록리스트']):
+            for target_block in st.session_state['수정블록리스트']:
                 print(f"1차: {target_block}")
 
                 blk_index = st.session_state['블록데이터'][st.session_state['블록데이터']["블록명"]==target_block].index.values[0]
