@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 # from tqdm import tqdm
 from datetime import datetime, timedelta
+import openpyxl
 
 st.set_page_config(
     page_title="정반공정최적화",
@@ -18,8 +19,8 @@ st.set_page_config(
 
 ## Data Load ############
 
-블록원데이터 = pd.read_excel("./data/data1.xlsx", sheet_name="블록데이터")
-정반원데이터 = pd.read_excel("./data/data1.xlsx", sheet_name="정반데이터")
+블록원데이터 = pd.read_excel("./data/data1.xlsx", sheet_name="블록데이터", engine='openpyxl')
+정반원데이터 = pd.read_excel("./data/data1.xlsx", sheet_name="정반데이터", engine='openpyxl')
 
 
 ## State Variable #############
