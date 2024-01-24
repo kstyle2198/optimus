@@ -319,10 +319,14 @@ def 생산계획수립():
             st.session_state['수정블록리스트'] = st.session_state['블록데이터']["블록명"].tolist()
             st.session_state['수정정반리스트'] = st.session_state['정반데이터']["정반명"].tolist()
 
-            for target_block in st.session_state['수정블록리스트']:
+            for _ in range(len(st.session_state['수정블록리스트'])):
 
                 ## 시작 상태 정보 확인 (잔여 블록 리스트 및 수정 정반 리스트)
                 st.markdown(f"**(시작 상태정보 확인) 수정블록리스트 : {st.session_state['수정블록리스트']}, 수정정반리스트 : {st.session_state['수정정반리스트']}**")
+
+                if st.session_state['수정블록리스트']:
+                    target_block = st.session_state['수정블록리스트'][0]
+                
 
                 blk_index = st.session_state['블록데이터'][st.session_state['블록데이터']["블록명"]==target_block].index.values[0]
                 target_weight = st.session_state['블록데이터'][st.session_state['블록데이터']["블록명"]==target_block]["중량"].values[0]
@@ -396,7 +400,7 @@ def 생산계획수립():
                     st.session_state['정반데이터']["우선순위"] = st.session_state['정반데이터'][["중량순서", "크기순서"]].apply(정반우선순위구하기, axis=1)
                     st.session_state['정반데이터'] = st.session_state['정반데이터'].sort_values(by=["우선순위"])
                     
-                    st.info(f"잔여면적비율 {np.round(잔여면적비율,1)*100}%로 30% 이상이므로 정반 쪼개기 - 새이름 {새정반이름} / 새면적 {새정반면적} / 기존정반수정면적-{기존정반새면적}") 
+                    st.info(f"잔여면적비율 {np.round(잔여면적비율,1)*100}%로 30% 이상이므로 정반 쪼개기 - 새이름 :blue[**{새정반이름}**] / 새면적 {새정반면적} / 기존정반수정면적-{기존정반새면적}") 
 
                     ## 쪼개진 새정반을 수정정반리스트에 반영
                     st.session_state['수정정반리스트'].append(새정반이름)    
@@ -429,9 +433,9 @@ def 생산계획수립():
                 st.session_state['공백순서달력'] = create_공백순서달력(st.session_state['배치달력'], st.session_state['수정정반리스트'], 날짜집합)
 
                 st.markdown("배치후 달력 조회 : 배치달력/공기달력/공백순서달력 순서. head(10)")
-                st.session_state['배치달력'].head(10)
-                st.session_state['공기달력'].head(10)
-                st.session_state['공백순서달력'].head(10)
+                st.session_state['배치달력']
+                st.session_state['공기달력']
+                st.session_state['공백순서달력']
                 st.markdown("---")
 
 
