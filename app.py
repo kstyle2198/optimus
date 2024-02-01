@@ -230,7 +230,7 @@ def 착수가능일찾기(공기달력, 공백순서달력, 정반, 표준공기
         착수가능일인덱스 = list(공기달력.index.strftime('%Y-%m-%d')).index(first_zeros[idx])
         착수가능일의확보가능공기 = 공기달력[f"{정반}"].iloc[착수가능일인덱스]
         
-        if 착수가능일의확보가능공기 > 표준공기:
+        if 착수가능일의확보가능공기 >= 표준공기:
             
             return 착수가능일
         
@@ -494,7 +494,7 @@ def 생산계획수립():
 
                     ## 수정정반리스트로 배치달력 등 업데이트
                     st.session_state['배치달력'] =  update_배치달력(st.session_state['배치달력'], 랜덤최선정반, 착수가능일, target_표준공기, st.session_state['수정정반리스트']) 
-                    st.session_state['배치달력'].iloc[:2,:] = 1    ## 갱신시 하드코딩 2일차까지 강제로 1 채우기
+                    st.session_state['배치달력'].iloc[:5,:] = 1    ## 갱신시 하드코딩 2일차까지 강제로 1 채우기
                     st.session_state['공기달력'] = create_공기달력(st.session_state['배치달력'], 날짜집합, st.session_state['수정정반리스트'])
                     st.session_state['공백순서달력'] = create_공백순서달력(st.session_state['배치달력'], st.session_state['수정정반리스트'], 날짜집합)
 
