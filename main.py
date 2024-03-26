@@ -137,8 +137,8 @@ def get_end_date_of_month(year, month):
     return date(year, month, num_days)
 
 
-def create_면적달력(시작년:int, 시작월:int, 종료년:int, 종료월:int, 정반데이터):
-    start_date = datetime(시작년, 시작월, 1)
+def create_면적달력(시작년:int, 시작월:int, 시작일: int, 종료년:int, 종료월:int, 정반데이터):
+    start_date = datetime(시작년, 시작월, 시작일)
     end_date = get_end_date_of_month(종료년, 종료월)
     정반집합 = 정반데이터["정반명"].tolist()
     날짜집합  = pd.date_range(start=start_date, end=end_date, freq='D')
@@ -235,8 +235,8 @@ def update_면적달력(면적달력, 최선조기착수대상, 배치블록명,
             
         return 면적달력
 
-def create_블록명달력(시작년:int, 시작월:int, 종료년:int, 종료월:int, 정반데이터):
-    start_date = datetime(시작년, 시작월, 1)
+def create_블록명달력(시작년:int, 시작월:int, 시작일: int, 종료년:int, 종료월:int, 정반데이터):
+    start_date = datetime(시작년, 시작월, 시작일)
     end_date = get_end_date_of_month(종료년, 종료월)
     정반집합 = 정반데이터["정반명"].tolist()
     날짜집합  = pd.date_range(start=start_date, end=end_date, freq='D')
@@ -266,8 +266,8 @@ def update_블록명달력(블록명달력, 최선정반, 블록데이터, block
     달력[f"{최선정반}"] = 결과모음
     return 달력
 
-def create_사이즈달력(시작년:int, 시작월:int, 종료년:int, 종료월:int, 정반데이터):
-    start_date = datetime(시작년, 시작월, 1)
+def create_사이즈달력(시작년:int, 시작월:int, 시작일: int, 종료년:int, 종료월:int, 정반데이터):
+    start_date = datetime(시작년, 시작월, 시작일)
     end_date = get_end_date_of_month(종료년, 종료월)
     정반집합 = 정반데이터["정반명"].tolist()
     날짜집합  = pd.date_range(start=start_date, end=end_date, freq='D')
@@ -614,10 +614,10 @@ if __name__ == "__main__":
     블록데이터 = 블록데이터전처리(블록원데이터)
     정반데이터 = 정반데이터전처리(정반원데이터)
 
-    print("달력데이터 생성 ---------------------------------------------------------")
-    면적달력 = create_면적달력(2024, 1, 2024, 4, 정반데이터)
-    블록명달력 = create_블록명달력(2024, 1, 2024, 4, 정반데이터)
-    사이즈달력 = create_사이즈달력(2024, 1, 2024, 4, 정반데이터)
+    # print("달력데이터 생성 ---------------------------------------------------------")
+    # 면적달력 = create_면적달력(2024, 1, 2024, 4, 정반데이터)
+    # 블록명달력 = create_블록명달력(2024, 1, 2024, 4, 정반데이터)
+    # 사이즈달력 = create_사이즈달력(2024, 1, 2024, 4, 정반데이터)
 
     착수일가중치들 = [1.0, 1.5, 2.0, 2.5, 3.0]
     공기가중치들 = [0.9, 0.75, 0.5, 0.25, 0.1]
@@ -626,7 +626,7 @@ if __name__ == "__main__":
 
     배치결과모음 = []
     가중치모음 = []
-    for _ in tqdm(range(10)):  #랜덤 10회 순환 검토
+    for _ in tqdm(range(3)):  #랜덤 00회 순환 검토
     
         # 블록가중치 랜덤 선택
         공기가중치 = choice(공기가중치들)
@@ -637,9 +637,9 @@ if __name__ == "__main__":
         가중치모음.append(가중치세트)
         
         블록데이터 = 블록데이터전처리(블록원데이터)    
-        면적달력 = create_면적달력(2024, 1, 2024, 4, 정반데이터)
-        블록명달력 = create_블록명달력(2024, 1, 2024, 4, 정반데이터)
-        사이즈달력 = create_사이즈달력(2024, 1, 2024, 4, 정반데이터)
+        면적달력 = create_면적달력(2024, 1, 3, 2024, 4, 정반데이터)
+        블록명달력 = create_블록명달력(2024, 1, 3, 2024, 4, 정반데이터)
+        사이즈달력 = create_사이즈달력(2024, 1, 3, 2024, 4, 정반데이터)
             
         생산계획결과 = 생산계획수립(블록데이터, 정반데이터, 면적달력, 블록명달력, 사이즈달력, 조기착수금지일수)
         
@@ -674,8 +674,9 @@ for i, 가중치세트 in enumerate(가중치모음):
     print(f">>> {int(i)+1}번째: 블록가중치 세트 --> {가중치세트} (착수일, 공기, 크기 순서)----------------------")
     t_df = 배치결과모음[i]
     t_df = t_df.dropna()
+    t_df["종료년"] = t_df["종료일자"].apply(lambda x: x[0:4])
     t_df["종료월"] = t_df["종료일자"].apply(lambda x: x[5:7])
-    g_df1 = t_df.groupby(["종료월"]).agg({"블록명":'count', "중량":'sum'})
+    g_df1 = t_df.groupby(["종료년", "종료월"]).agg({"블록명":'count', "중량":'sum'})
     g_df1.columns = ["블록개수", "총조립중량"]
     print(">>> 월별 총조립량 -------------------")
     print(g_df1)
