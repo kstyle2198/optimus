@@ -295,14 +295,14 @@ def fit_blocks_with_thresh(surface, surface_width, surface_height, blocks, names
         block_id += 1  # Increment block_id for the next block
     return surface, result
 
-def 정반배치레이아웃적합도(정반명, 정반데이터, 조회날짜, 블록명달력, 블록사이즈달력):
+def 정반배치레이아웃적합도(정반명, 정반데이터, 조회날짜, 블록명달력, 블록사이즈달력, thresh1):
     
     block_names = 블록명달력.at[조회날짜, 정반명]
     block_sizes = 블록사이즈달력.at[조회날짜, 정반명]
     정반사이즈 = 정반데이터[정반데이터["정반명"]==정반명]["사이즈"].values[0]
 
     surface, surface_width, surface_height = 정반세팅(정반사이즈)
-    배치결과 = fit_blocks_with_thresh(surface, surface_width, surface_height, block_sizes, block_names, thresh)
+    배치결과 = fit_blocks_with_thresh(surface, surface_width, surface_height, block_sizes, block_names, thresh1)
     적합도 = 배치결과[1]
     
     return 적합도
@@ -416,23 +416,26 @@ def 최선조기착수대상선택(최선착수일후보):
 
 
 if __name__ == "__main__":
+
     data_num = "_실행계획"
-
     시작년, 시작월, 시작일, 종료년, 종료월 = 2023, 10, 1, 2024, 4
-
     thresh = 1  # 블록 간격(m)
     조기착수금지일수 = 7
 
     블록원데이터 = pd.read_excel(f"D:/공정최적화/data/data1{data_num}.xlsx", sheet_name="블록데이터")
     기배치블록 = pd.read_excel(f"D:/공정최적화/data/data1{data_num}.xlsx", sheet_name="기배치블록")
     정반원데이터 = pd.read_excel(f"D:/공정최적화/data/data1{data_num}.xlsx", sheet_name="정반데이터")
-    블록원데이터.shape
 
-    검토개수 = 123
+    기배치블록.rename(columns={'공기':'표준공기'}, inplace=True)
+
+    기배치블록1 =기배치블록[["블록명", "중량", "가로", "세로", "표준공기", "종료일"]]
+    기배치블록1.rename(columns={'종료일':'납기'}, inplace=True)
+    블록마스터 = pd.concat([기배치블록1, 블록원데이터])
+
+    검토개수 = 115
     블록원데이터 = 블록원데이터.iloc[:검토개수,:]
-    블록원데이터.shape
 
-    착수일가중치, 공기가중치, 크기가중치 = 5, 0.5, 0.1
+    착수일가중치, 공기가중치, 크기가중치 = 10, 0.5, 0.1
     블록데이터 = 블록데이터전처리(블록원데이터)
 
     중량가중치, 크기가중치 = 0.5, 0.5
@@ -447,17 +450,30 @@ if __name__ == "__main__":
     기배치블록["사이즈"] = 기배치블록[["가로", "세로"]].apply(블록사이즈튜플만들기, axis=1)
     기배치블록["착수일"] = 기배치블록["착수일"].dt.strftime('%Y-%m-%d')
     기배치블록["종료일"] = 기배치블록["종료일"].dt.strftime('%Y-%m-%d')
-    for 블록착수일, 배치블록명, 블록면적, 표준공기, 배치정반 in zip(기배치블록["착수일"], 기배치블록["블록명"], 기배치블록["블록면적"], 기배치블록["공기"], 기배치블록["배치정반"],):
+
+    정반리스트 = 정반데이터["정반명"].tolist()
+    블록명_dict = {key: [] for key in 정반리스트}
+    착수일자_dict = {key: [] for key in 정반리스트}
+    사이즈_dict = {key: [] for key in 정반리스트}
+
+    for 블록착수일, 배치블록명, 블록면적, 표준공기, 배치정반, 사이즈 in zip(기배치블록["착수일"], 기배치블록["블록명"], 기배치블록["블록면적"], 기배치블록["표준공기"], 기배치블록["배치정반"],기배치블록["사이즈"]):
+        
+        블록명_dict[배치정반].append(배치블록명)
+        착수일자_dict[배치정반].append(블록착수일)
+        사이즈_dict[배치정반].append(사이즈)
+        
         면적달력 = update_init_면적달력(면적달력, 블록착수일, 배치정반, 블록면적, 표준공기)
+        블록명달력 = update_블록명달력(블록명달력, 배치정반, 기배치블록, 블록명_dict[배치정반], 착수일자_dict[배치정반])
+        사이즈달력 = update_사이즈달력(사이즈달력, 배치정반, 기배치블록, 블록명_dict[배치정반], 사이즈_dict[배치정반], 착수일자_dict[배치정반])
 
     # 블록데이터 및 정반데이터 정리
     # 달력초기화 및 기진행블록 달력에 반영
     block_list = 블록데이터["블록명"].tolist()
     정반리스트 = 정반데이터["정반명"].tolist()
 
-    블록명_dict = {key: [] for key in 정반리스트}
-    착수일자_dict = {key: [] for key in 정반리스트}
-    사이즈_dict = {key: [] for key in 정반리스트}
+    # 블록명_dict = {key: [] for key in 정반리스트}
+    # 착수일자_dict = {key: [] for key in 정반리스트}
+    # 사이즈_dict = {key: [] for key in 정반리스트}
     배치상태 = []
     착수일자 = []
 
@@ -538,8 +554,8 @@ if __name__ == "__main__":
             사이즈달력 = origin_사이즈달력
             
             # 레이아웃 적합도 판단을 위해 임시 배치한 달력을 생성
-            임시_블록명달력 = update_블록명달력(블록명달력, 최선정반, 블록데이터, 블록명_dict[최선정반], 착수일자_dict[최선정반])
-            임시_사이즈달력 = update_사이즈달력(사이즈달력, 최선정반, 블록데이터, 블록명_dict[최선정반], 사이즈_dict[최선정반], 착수일자_dict[최선정반])
+            임시_블록명달력 = update_블록명달력(블록명달력, 최선정반, 블록마스터, 블록명_dict[최선정반], 착수일자_dict[최선정반])
+            임시_사이즈달력 = update_사이즈달력(사이즈달력, 최선정반, 블록마스터, 블록명_dict[최선정반], 사이즈_dict[최선정반], 착수일자_dict[최선정반])
 
             for k in range(표준공기):
                 레이아웃배치검토시작일 = datetime.strptime(최선착수일, "%Y-%m-%d")  # + timedelta(days=g)
@@ -547,11 +563,11 @@ if __name__ == "__main__":
                 레이아웃검토날짜 = new_date.strftime("%Y-%m-%d") 
                 # print(f"--- g: {g}, k: {k}, 레이아웃배치검토시작일: {레이아웃배치검토시작일.strftime('%Y-%m-%d')}, 레이아웃검토날짜: {레이아웃검토날짜}")
 
-                적합도 = 정반배치레이아웃적합도(최선정반, 정반데이터, 레이아웃검토날짜, 임시_블록명달력, 임시_사이즈달력)
+                적합도 = 정반배치레이아웃적합도(최선정반, 정반데이터, 레이아웃검토날짜, 임시_블록명달력, 임시_사이즈달력, thresh)
 
                 레이아웃적합도모음.append(적합도)
 
-            print(f"레이아웃적합도모음: {레이아웃적합도모음}")
+            print(f">>>> 레이아웃적합도모음: {레이아웃적합도모음}")
             
             if "부적합" not in  레이아웃적합도모음:
 
@@ -567,8 +583,8 @@ if __name__ == "__main__":
 
                 if 면적달력결과[0] == True:
                     면적달력 = 면적달력결과[1]
-                    블록명달력 = update_블록명달력(블록명달력, 최선정반, 블록데이터, 블록명_dict[최선정반], 착수일자_dict[최선정반])
-                    사이즈달력 = update_사이즈달력(사이즈달력, 최선정반, 블록데이터, 블록명_dict[최선정반], 사이즈_dict[최선정반], 착수일자_dict[최선정반])
+                    블록명달력 = update_블록명달력(블록명달력, 최선정반, 블록마스터, 블록명_dict[최선정반], 착수일자_dict[최선정반])
+                    사이즈달력 = update_사이즈달력(사이즈달력, 최선정반, 블록마스터, 블록명_dict[최선정반], 사이즈_dict[최선정반], 착수일자_dict[최선정반])
                     status = "정상배치"
                     착수일 = 레이아웃검토후최선착수일
                     print(">>>>> 정상배치 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
@@ -607,10 +623,14 @@ if __name__ == "__main__":
     배치후데이터['최소착수요구일'] = pd.to_datetime(배치후데이터['최소착수요구일'])
     배치후데이터['착수일자'] = pd.to_datetime(배치후데이터['착수일자'])
     배치후데이터["델타"] = 배치후데이터['착수일자'] - 배치후데이터['최소착수요구일']
-    배치후데이터.to_csv("final.csv", encoding="utf-8-sig")
-    면적달력.to_csv("면적달력.csv", encoding="utf-8-sig")
-    블록명달력.to_csv("블록명달력.csv", encoding="utf-8-sig")
-    사이즈달력.to_csv("사이즈달력.csv", encoding="utf-8-sig")
+
+
+    정반데이터.to_csv("./results/정반데이터.csv", encoding="utf-8-sig")
+    블록데이터.to_csv("./results/블록데이터.csv", encoding="utf-8-sig")
+    배치후데이터.to_csv("./results/배치결과.csv", encoding="utf-8-sig")
+    면적달력.to_csv("./results/면적달력.csv", encoding="utf-8-sig")
+    블록명달력.to_csv("./results/블록명달력.csv", encoding="utf-8-sig")
+    사이즈달력.to_csv("./results/사이즈달력.csv", encoding="utf-8-sig")
 
     print(f"{len(배치상태)}, {배치상태.count('정상배치')}, {배치상태.count('배치불가')}")
 
